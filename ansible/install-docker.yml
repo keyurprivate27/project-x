@@ -1,0 +1,21 @@
+- hosts: web
+  become: yes
+
+  tasks:
+
+  - name: install docker
+    yum:
+      name: docker
+      state: present
+
+  - name: start docker
+    service:
+      name: docker
+      state: started
+      enabled: yes
+
+  - name: add ec2-user to docker group
+    user:
+      name: ec2-user
+      groups: docker
+      append: yes

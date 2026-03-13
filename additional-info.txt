@@ -1,0 +1,266 @@
+###req jenkins plugins###
+Git
+GitHub Integration
+Pipeline
+Multibranch Pipeline
+Docker Pipeline
+SSH Agent
+Credentials Binding
+Terraform (optional)
+###Install Required Tools on Jenkins Server###
+-Install Git
+sudo yum install git -y
+-Install Docker
+sudo yum install docker -y
+sudo systemctl start docker
+sudo systemctl enable docker
+-Allow Jenkins to run docker:
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+Install Terraform
+sudo yum install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo yum install terraform -y
+-verify terraform version
+terraform version
+-Install Ansible
+sudo dnf update -y
+sudo dnf install ansible -y
+verify version
+ansible --version
+---------
+
+sudo dnf install git -y
+sudo dnf install docker -y
+sudo dnf install python3-pip -y
+
+----------
+
+sudo systemctl enable docker
+sudo systemctl start docker
+
+-----------
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+
+-----------
+sudo dnf update -y
+sudo dnf install git docker ansible -y
+
+------------
+sudo dnf install -y yum-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo dnf install terraform -y
+
+-----------
+run jenkins with container
+-----------
+
+docker run -d \
+-p 8080:8080 \
+-p 50000:50000 \
+--name jenkins \
+-v jenkins_home:/var/jenkins_home \
+jenkins/jenkins:lts
+
+http://EC2_PUBLIC_IP:8080
+
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
+Important plugins:
+
+Git
+
+Pipeline
+
+Docker Pipeline
+
+Multibranch Pipeline
+
+SSH Agent
+
+Credentials Binding
+
+
+Install DevOps Tools in Jenkins Container
+
+Your pipeline needs:
+
+Git
+
+Docker
+
+Terraform
+
+Ansible
+
+-
+docker exec -it jenkins bash
+-
+apt update
+apt install git ansible docker.io -y
+-
+Install Terraform:
+-
+wget https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_linux_amd64.zip
+apt install unzip -y
+unzip terraform_1.7.5_linux_amd64.zip
+mv terraform /usr/local/bin/
+
+-----Allow to Jenkins to use host docker-----
+docker stop jenkins
+docker rm jenkins
+---Run again with Docker socket:
+docker run -d \
+-p 8080:8080 \
+-p 50000:50000 \
+-v jenkins_home:/var/jenkins_home \
+-v /var/run/docker.sock:/var/run/docker.sock \
+--name jenkins \
+jenkins/jenkins:lts
+
+--Verify Tools
+docker exec -it jenkins bash
+
+git --version
+docker --version
+terraform version
+ansible --version
+
+Jenkins Credentials
+----------------
+
+Jenkins → Manage Jenkins → Credentials
+
+Kind: Username with password
+Username: your-dockerhub-username
+Password: dockerhub-password
+ID: dockerhub
+Description: DockerHub Login
+
+in groovy Jenkinsfile
+
+withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+    sh 'docker login -u $USER -p $PASS'
+}
+
+Terraform need AWS cred
+
+Jenkins → Credentials → Global → Add
+Kind: Secret text
+ID: aws-access-key
+Secret: AWS_ACCESS_KEY_ID
+
+Add Another
+
+Kind: Secret text
+ID: aws-secret-key
+Secret: AWS_SECRET_ACCESS_KEY
+
+Use in Jenkinsfile
+
+----
+
+withCredentials([
+string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+]) {
+
+sh 'terraform init'
+sh 'terraform apply -auto-approve'
+
+}
+
+GitHub Credentials (If Repo is Private)
+
+Kind: Username + Password
+ID: github-creds
+
+or better:
+
+Kind: Personal Access Token
+
+Steps in GitHub:
+
+GitHub → Settings → Developer Settings
+→ Personal Access Token
+
+Scopes:
+	repo
+	workflow
+
+EC2 SSH Key
+
+Jenkins must SSH to EC2 to deploy container.
+
+Kind: SSH Username with private key
+
+ID: ec2-ssh
+Username: ec2-user
+Private Key: paste your .pem key content
+
+Use in Jenkinsfile
+
+sshagent(['ec2-ssh']) {
+
+sh '''
+ssh ec2-user@EC2_IP
+docker pull yourimage
+docker run -d -p 80:3000 yourimage
+'''
+
+}
+
+Install Required Jenkins Plugins
+
+Jenkins → Manage Jenkins → Plugins
+
+Git
+GitHub Integration
+GitHub Branch Source
+Pipeline
+Multibranch Pipeline
+
+Enable GitHub Hook in Jenkins
+
+Jenkins → project-x-pipeline → Configure
+
+Under Scan Multibranch Pipeline Triggers, enable:
+
+☑ Scan by webhook
+
+Add Webhook in GitHub
+
+Go to your repository:
+
+GitHub → project-x → Settings → Webhooks
+
+	Add Webhook
+
+	http://JENKINS_SERVER_IP:8080/github-webhook/
+
+	application/json
+
+	Just the push event
+
+Run Jenkins container like this
+
+docker run -d \
+-p 8080:8080 \
+-p 50000:50000 \
+--name jenkins \
+-v jenkins_home:/var/jenkins_home \
+-v /var/run/docker.sock:/var/run/docker.sock \
+-v /usr/bin/docker:/usr/bin/docker \
+jenkins/jenkins:lts
+
+Plugins Needed (UI)
+
+Git
+GitHub Branch Source
+Pipeline
+Multibranch Pipeline
+Docker Pipeline
+SSH Agent
+Credentials Binding
+
